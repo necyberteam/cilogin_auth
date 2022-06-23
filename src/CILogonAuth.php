@@ -1,0 +1,910 @@
+<?php
+
+namespace Drupal\cilogon_auth;
+
+use Drupal\Console\Bootstrap\Drupal;
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\EntityFieldManagerInterface;
+use Drupal\Core\Extension\ModuleHandler;
+use Drupal\Core\File\FileSystem;
+use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+use Drupal\Core\Messenger\MessengerInterface;
+use Drupal\Core\Session\AccountProxyInterface;
+use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\cilogon_auth\Plugin\CILogonAuthClientInterface;
+use Drupal\user\UserDataInterface;
+use Drupal\user\UserInterface;
+use Drupal\user_restrictions\UserRestrictionsManager;
+use Drupal\Component\Utility\EmailValidatorInterface;
+
+/**
+ * Main service of the CILogon Auth module.
+ */
+class CILogonAuth {
+
+    use StringTranslationTrait;
+
+    /**
+     * The config factory.
+     *
+     * @var \Drupal\Core\Config\ConfigFactoryInterface
+     */
+    protected $configFactory;
+
+    /**
+     * The CILogon Auth authmap service.
+     *
+     * @var \Drupal\cilogon_auth\CILogonAuthAuthmap
+     */
+    protected $authmap;
+
+    /**
+     * The entity field manager.
+     *
+     * @var \Drupal\Core\Entity\EntityFieldManagerInterface
+     */
+    protected $entityFieldManager;
+
+    /**
+     * The current user.
+     *
+     * @var \Drupal\Core\Session\AccountProxyInterface
+     */
+    protected $currentUser;
+
+    /**
+     * The user data service.
+     *
+     * @var \Drupal\user\UserDataInterface
+     */
+    protected $userData;
+
+    /**
+     * The User entity storage.
+     *
+     * @var \Drupal\Core\Entity\EntityStorageInterface
+     */
+    protected $userStorage;
+
+    /**
+     * The Messenger service.
+     *
+     * @var \Drupal\Core\Messenger\MessengerInterface
+     */
+    protected $messenger;
+
+    /**
+     * The module handler.
+     *
+     * @var \Drupal\Core\Extension\ModuleHandler
+     */
+    protected $moduleHandler;
+
+    /**
+     * The email validator service.
+     *
+     * @var \Drupal\Component\Utility\EmailValidatorInterface
+     */
+    protected $emailValidator;
+
+    /**
+     * The CILogon Auth logger channel.
+     *
+     * @var \Drupal\Core\Logger\LoggerChannelInterface
+     */
+    protected $logger;
+
+    /**
+     * User Restrictions Manager module.
+     *
+     * @var \Drupal\user_restrictions\UserRestrictionsManager
+     */
+    protected $userRestrictionsManager;
+
+    /**
+     * The File System service.
+     *
+     * @var \Drupal\Core\File\FileSystem
+     */
+    protected $fileSystem;
+
+    /**
+     * Construct an instance of the CILogon Auth service.
+     *
+     * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
+     *   The config factory.
+     * @param \Drupal\cilogon_auth\CILogonAuthAuthmap $authmap
+     *   The CILogonAuth authmap service.
+     * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
+     *   The entity manager.
+     * @param \Drupal\Core\Entity\EntityFieldManagerInterface $entity_field_manager
+     *   The entity field manager.
+     * @param \Drupal\Core\Session\AccountProxyInterface $current_user
+     *   Account proxy for the currently logged-in user.
+     * @param \Drupal\user\UserDataInterface $user_data
+     *   The user data service.
+     * @param \Drupal\Component\Utility\EmailValidatorInterface $email_validator
+     *   The email validator service.
+     * @param \Drupal\Core\Messenger\MessengerInterface $messenger
+     *   The messenger service.
+     * @param \Drupal\Core\Extension\ModuleHandler $module_handler
+     *   The module handler.
+     * @param \Drupal\Core\Logger\LoggerChannelFactoryInterface $logger
+     *   A logger channel factory instance.
+     * @param \Drupal\Core\File\FileSystem $file_system
+     *   A file system service.
+     */
+    public function __construct(
+        ConfigFactoryInterface $config_factory,
+        CILogonAuthAuthmap $authmap,
+        EntityTypeManagerInterface $entity_type_manager,
+        EntityFieldManagerInterface $entity_field_manager,
+        AccountProxyInterface $current_user,
+        UserDataInterface $user_data,
+        EmailValidatorInterface $email_validator,
+        MessengerInterface $messenger,
+        ModuleHandler $module_handler,
+        LoggerChannelFactoryInterface $logger,
+        FileSystem $file_system
+    ) {
+        $this->configFactory = $config_factory;
+        $this->authmap = $authmap;
+        $this->userStorage = $entity_type_manager->getStorage('user');
+        $this->entityFieldManager = $entity_field_manager;
+        $this->currentUser = $current_user;
+        $this->userData = $user_data;
+        $this->emailValidator = $email_validator;
+        $this->messenger = $messenger;
+        $this->moduleHandler = $module_handler;
+        $this->logger = $logger->get('cilogon_auth');
+        $this->fileSystem = $file_system;
+    }
+
+    /**
+     * Set User Restrictions Manager module.
+     *
+     * @param \Drupal\user_restrictions\UserRestrictionsManager $userRestrictionsManager
+     *   User Restriction Manager.
+     */
+    public function setUserRestrictionsManager(UserRestrictionsManager $userRestrictionsManager) {
+        $this->userRestrictionsManager = $userRestrictionsManager;
+    }
+
+    /**
+     * Get User Restrictions Manager.
+     *
+     * @return \Drupal\user_restrictions\UserRestrictionsManager
+     */
+    public function getUserRestrictionManager() {
+        return $this->userRestrictionsManager;
+    }
+
+    /**
+     * Return user properties that can be ignored when mapping user profile info.
+     *
+     * @param array $context
+     *   Optional: Array with context information, if this function is called
+     *   within the context of user authorization.
+     *   Defaults to an empty array.
+     */
+    public function userPropertiesIgnore(array $context = []) {
+        $properties_ignore = [
+            'uid',
+            'uuid',
+            'langcode',
+            'preferred_langcode',
+            'preferred_admin_langcode',
+            'name',
+            'pass',
+            'mail',
+            'status',
+            'created',
+            'changed',
+            'access',
+            'login',
+            'init',
+            'roles',
+            'default_langcode',
+        ];
+        $this->moduleHandler->alter('cilogon_auth_user_properties_ignore', $properties_ignore, $context);
+        // Invoke deprecated hook with deprecation error message.
+        // @todo Remove in RC1.
+        $this->moduleHandler->alterDeprecated('hook_cilogon_auth_user_properties_to_skip_alter() is deprecated and will be removed in 8.x-1.x-rc1.', 'cilogon_auth_user_properties_to_skip', $properties_ignore);
+
+        $properties_ignore = array_unique($properties_ignore);
+        return array_combine($properties_ignore, $properties_ignore);
+    }
+
+    /**
+     * Complete the authorization after tokens have been retrieved.
+     *
+     * @param \Drupal\cilogon_auth\Plugin\CILogonAuthClientInterface $client
+     *   The client.
+     * @param array $tokens
+     *   The tokens as returned from
+     *   CILogonAuthClientInterface::retrieveTokens().
+     * @param string|array &$destination
+     *   The path to redirect to after authorization.
+     *
+     * @return bool
+     *   TRUE on success, FALSE on failure.
+     */
+    public function completeAuthorization(CILogonAuthClientInterface $client, array $tokens, &$destination) {
+        if ($this->currentUser->isAuthenticated()) {
+            throw new \RuntimeException('User already logged in');
+        }
+
+        $user_data = $client->decodeIdToken($tokens['id_token']);
+        $userinfo = $client->retrieveUserInfo($tokens['access_token']);
+
+        $context = [
+            'tokens' => $tokens,
+            'plugin_id' => $client->getPluginId(),
+            'user_data' => $user_data,
+        ];
+        $this->moduleHandler->alter('cilogon_auth_userinfo', $userinfo, $context);
+
+        if ($userinfo && empty($userinfo['email'])) {
+            $message = 'No e-mail address provided by @provider';
+            $variables = ['@provider' => $client->getPluginId()];
+            $this->logger->error($message . ' (@code @error). Details: @details', $variables);
+            return FALSE;
+        }
+
+        if (!is_null($this->userRestrictionsManager)) {
+            $enable_user_restrictions = $this->configFactory->get('cilogon_auth.settings')
+                ->get('enable_user_restriction');
+            if ($enable_user_restrictions) {
+                $data = [
+                    'client_ip' => '',
+                    'mail' => $userinfo['email']
+                ];
+
+                if ($this->userRestrictionsManager->matchesRestrictions($data)) {
+                    $errors = $this->userRestrictionsManager->getErrors();
+                    $this->messenger->addError(reset($errors));
+                    return FALSE;
+                }
+            }
+        }
+
+        $sub = $this->extractSub($user_data, $userinfo);
+        if (empty($sub)) {
+            $message = 'No "sub" found from @provider';
+            $variables = ['@provider' => $client->getPluginId()];
+            $this->logger->error($message . ' (@code @error). Details: @details', $variables);
+            return FALSE;
+        }
+
+        $idp_name = $this->extractIdpName($user_data, $userinfo);
+
+        /* @var \Drupal\user\UserInterface $account */
+        $account = $this->authmap->userLoadBySub($sub, $client->getPluginId());
+        $context = [
+            'tokens' => $tokens,
+            'plugin_id' => $client->getPluginId(),
+            'user_data' => $user_data,
+            'userinfo' => $userinfo,
+            'sub' => $sub,
+        ];
+        $results = $this->moduleHandler->invokeAll('cilogon_auth_pre_authorize', [
+            $account,
+            $context,
+        ]);
+
+        // Deny access if any module returns FALSE.
+        if (in_array(FALSE, $results, TRUE)) {
+            $message = 'Login denied for @email via pre-authorize hook.';
+            $variables = ['@email' => $userinfo['email']];
+            $this->logger->error($message, $variables);
+            return FALSE;
+        }
+
+        // If any module returns an account, set local $account to that.
+        foreach ($results as $result) {
+            if ($result instanceof UserInterface) {
+                $account = $result;
+                break;
+            }
+        }
+
+        //If account in cilogon_authmap
+        if ($account) {
+            // An existing account was found. Save user claims.
+            if ($this->configFactory->get('cilogon_auth.settings')->get('always_save_userinfo')) {
+                $context = [
+                    'tokens' => $tokens,
+                    'plugin_id' => $client->getPluginId(),
+                    'user_data' => $user_data,
+                    'userinfo' => $userinfo,
+                    'sub' => $sub,
+                    'is_new' => FALSE,
+                ];
+                $this->saveUserinfo($account, $context);
+            }
+        }
+        else {
+            // Check whether the e-mail address is valid.
+            if (!$this->emailValidator->isValid($userinfo['email'])) {
+                $this->messenger->addError($this->t('The e-mail address is not valid: @email', [
+                    '@email' => $userinfo['email'],
+                ]));
+                return FALSE;
+            }
+
+            // Check whether there is an e-mail address conflict.
+            $accounts = $this->userStorage->loadByProperties([
+                'mail' => $userinfo['email'],
+            ]);
+            if ($accounts) {
+                $account = reset($accounts);
+                $connect_existing_users = $this->configFactory->get('cilogon_auth.settings')
+                    ->get('connect_existing_users');
+                if ($connect_existing_users) {
+                    // Connect existing user account with this sub.
+                    $this->authmap->createAssociation($account, $client->getPluginId(), $sub, $idp_name);
+                }
+                else {
+                    $this->messenger->addError($this->t('The e-mail address is already taken: @email', [
+                        '@email' => $userinfo['email'],
+                    ]));
+                    return FALSE;
+                }
+            }
+
+            // Check Drupal user register settings before saving.
+            $register = $this->configFactory->get('user.settings')
+                ->get('register');
+            // Respect possible override from CILogon-Auth settings.
+            $register_override = $this->configFactory->get('cilogon_auth.settings')
+                ->get('override_registration_settings');
+
+            if ($register === USER_REGISTER_ADMINISTRATORS_ONLY && $register_override) {
+                $register = USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL;
+            }
+
+            $unblock_account = $this->configFactory->get('cilogon_auth.settings')
+                ->get('unblock_account');
+
+            if ($register === USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL && $register_override && $unblock_account) {
+                $register = USER_REGISTER_VISITORS;
+            }
+
+            if (empty($account)) {
+                switch ($register) {
+                    case USER_REGISTER_ADMINISTRATORS_ONLY:
+                        // Deny user registration.
+                        $this->messenger->addError($this->t('Only administrators can register new accounts.'));
+                        return FALSE;
+
+                    case USER_REGISTER_VISITORS:
+                        // Create a new account if register settings is set to visitors or
+                        // override is active.
+                        $account = $this->createUser($sub, $userinfo, $client->getPluginId(), 1);
+                        $config = $this->configFactory->get('cilogon_auth.settings');
+                        if ($config->get('assignRole')) {
+                          if ($config->get('role') != 'authenticated') {
+                            $account->addRole($config->get('role'));
+                          }
+                        }
+                        $this->authmap->createAssociation($account, $client->getPluginId(), $sub, $idp_name);
+                        break;
+
+                    case USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL:
+                        // Create a new account and inform the user of the pending approval.
+                        $account = $this->createUser($sub, $userinfo, $client->getPluginId(), 0);
+                        $config = $this->configFactory->get('cilogon_auth.settings');
+                        if ($config->get('assignRole')) {
+                          if ($config->get('role') != 'authenticated') {
+                            $account->addRole($config->get('role'));
+                          }
+                        }
+                        $this->authmap->createAssociation($account, $client->getPluginId(), $sub, $idp_name);
+                        $this->messenger->addMessage($this->t('Thank you for applying for an account. Your account is currently pending approval by the site administrator.'));
+                        break;
+                }
+            }
+
+            if ($account == FALSE)
+            {
+                return FALSE;
+            }
+
+            // Store the newly created account.
+            $context = [
+                'tokens' => $tokens,
+                'plugin_id' => $client->getPluginId(),
+                'user_data' => $user_data,
+                'userinfo' => $userinfo,
+                'sub' => $sub,
+                'is_new' => TRUE,
+            ];
+
+            $this->saveUserinfo($account, $context);
+        }
+
+        // Whether the user should not be logged in due to pending administrator
+        // approval.
+        if ($account->isBlocked()) {
+            if (empty($context['is_new'])) {
+                $this->messenger->addError($this->t('The username %name has not been activated or is blocked.', [
+                    '%name' => $account->getAccountName(),
+                ]));
+            }
+            return FALSE;
+        }
+
+        $this->loginUser($account);
+
+        $context = [
+            'tokens' => $tokens,
+            'plugin_id' => $client->getPluginId(),
+            'user_data' => $user_data,
+            'userinfo' => $userinfo,
+            'sub' => $sub,
+        ];
+        $this->moduleHandler->invokeAll(
+            'cilogon_auth_post_authorize',
+            [
+                $account,
+                $context,
+            ]
+        );
+
+        return TRUE;
+    }
+
+    /**
+     * Connect the current user's account to an external provider.
+     *
+     * @param \Drupal\cilogon_auth\Plugin\CILogonAuthClientInterface $client
+     *   The client.
+     * @param array $tokens
+     *   The tokens as returned from
+     *   CILogonAuthClientInterface::retrieveTokens().
+     *
+     * @return bool
+     *   TRUE on success, FALSE on failure.
+     */
+    public function connectCurrentUser(CILogonAuthClientInterface $client, array $tokens) {
+        if (!$this->currentUser->isAuthenticated()) {
+            throw new \RuntimeException('User not logged in');
+        }
+
+        /* @var \Drupal\cilogon_auth\Authmap $authmap */
+        $user_data = $client->decodeIdToken($tokens['id_token']);
+        $userinfo = $client->retrieveUserInfo($tokens['access_token']);
+
+        $context = [
+            'tokens' => $tokens,
+            'plugin_id' => $client->getPluginId(),
+            'user_data' => $user_data,
+        ];
+        $this->moduleHandler->alter('cilogon_auth_userinfo', $userinfo, $context);
+
+        $provider_param = [
+            '@provider' => $client->getPluginId(),
+        ];
+
+        if ($userinfo && empty($userinfo['email'])) {
+            $message = 'No e-mail address provided by @provider';
+            $variables = $provider_param;
+            $this->logger->error($message . ' (@code @error). Details: @details', $variables);
+            return FALSE;
+        }
+
+        if (!is_null($this->userRestrictionsManager)) {
+            $enable_user_restrictions = $this->configFactory->get('cilogon_auth.settings')
+                ->get('enable_user_restriction');
+            if ($enable_user_restrictions) {
+                $data = [
+                    'client_ip' => '',
+                    'mail' => $userinfo['email']
+                ];
+
+                if ($this->userRestrictionsManager->matchesRestrictions($data)) {
+                    $errors = $this->userRestrictionsManager->getErrors();
+                    $this->messenger->addError(reset($errors));
+                    return FALSE;
+                }
+            }
+        }
+
+        $sub = $this->extractSub($user_data, $userinfo);
+        if (empty($sub)) {
+            $message = 'No "sub" found from @provider';
+            $variables = $provider_param;
+            $this->logger->error($message . ' (@code @error). Details: @details', $variables);
+            return FALSE;
+        }
+
+        $idp_name = $this->extractIdpName($user_data, $userinfo);
+
+        /* @var \Drupal\user\UserInterface $account */
+        $account = $this->authmap->userLoadBySub($sub, $client->getPluginId());
+        $context = [
+            'tokens' => $tokens,
+            'plugin_id' => $client->getPluginId(),
+            'user_data' => $user_data,
+            'userinfo' => $userinfo,
+            'sub' => $sub,
+        ];
+        $results = $this->moduleHandler->invokeAll('cilogon_auth_pre_authorize', [
+            $account,
+            $context,
+        ]);
+
+        // Deny access if any module returns FALSE.
+        if (in_array(FALSE, $results, TRUE)) {
+            $message = 'Login denied for @email via pre-authorize hook.';
+            $variables = ['@email' => $userinfo['email']];
+            $this->logger->error($message, $variables);
+            return FALSE;
+        }
+
+        // If any module returns an account, set local $account to that.
+        foreach ($results as $result) {
+            if ($result instanceof UserInterface) {
+                $account = $result;
+                break;
+            }
+        }
+
+        if ($account && $account->id() !== $this->currentUser->id()) {
+            $this->messenger->addError($this->t('Another user is already connected to this @provider account.', $provider_param));
+            return FALSE;
+        }
+
+        if (!$account) {
+            $account = $this->userStorage->load($this->currentUser->id());
+            $this->authmap->createAssociation($account, $client->getPluginId(), $sub, $idp_name);
+        }
+
+        $always_save_userinfo = $this->configFactory->get('cilogon_auth.settings')->get('always_save_userinfo');
+        if ($always_save_userinfo) {
+            $context = [
+                'tokens' => $tokens,
+                'plugin_id' => $client->getPluginId(),
+                'user_data' => $user_data,
+                'userinfo' => $userinfo,
+                'sub' => $sub,
+            ];
+            $this->saveUserinfo($account, $context);
+        }
+
+        $context = [
+            'tokens' => $tokens,
+            'plugin_id' => $client->getPluginId(),
+            'user_data' => $user_data,
+            'userinfo' => $userinfo,
+            'sub' => $sub,
+        ];
+        $this->moduleHandler->invokeAll(
+            'cilogon_auth_post_authorize',
+            [
+                $account,
+                $context,
+            ]
+        );
+
+        return TRUE;
+    }
+
+    /**
+     * Generate a username for a new account.
+     *
+     * @param string $sub
+     *   The subject identifier.
+     * @param array $userinfo
+     *   The user claims.
+     * @param string $client_name
+     *   The client identifier.
+     *
+     * @return string
+     *   A unique username.
+     */
+    public function generateUsername($sub, array $userinfo, $client_name)
+    {
+        #respect username generation scheme
+        $username_generation_scheme = $this->configFactory->get('cilogon_auth.settings')
+            ->get('username_generation_scheme');
+
+        switch ($username_generation_scheme)
+        {
+            case 'email':
+                $name = $userinfo['email'];
+                break;
+            case 'email prefix':
+                #email are in the form aaa@bbb. Split string by @ and get aaa
+                $name = explode("@", $userinfo['email'])[0];
+                break;
+            case 'custom prefix':
+                $name = $this->configFactory->get('cilogon_auth.settings')->get('username_custom_prefix') . "1";
+
+                for ($original = $name, $i = 2; $this->usernameExists($name); $i++) {
+                    $name = $original . $i;
+                }
+
+                return $name;
+            default:
+                $name = $client_name . '_' . md5($sub);
+                break;
+        }
+
+        // Ensure there are no duplicates.
+        for ($original = $name, $i = 1; $this->usernameExists($name); $i++) {
+            $name = $original . '_' . $i;
+        }
+
+        return $name;
+    }
+
+    /**
+     * Save user profile information into a user account.
+     *
+     * @param \Drupal\user\UserInterface $account
+     *   An user account object.
+     * @param array $context
+     *   An associative array with context information:
+     *   - tokens:         An array of tokens.
+     *   - user_data:      An array of user and session data.
+     *   - userinfo:       An array of user information.
+     *   - plugin_id:      The plugin identifier.
+     *   - sub:            The remote user identifier.
+     */
+    public function saveUserinfo(UserInterface $account, array $context) {
+        $userinfo = $context['userinfo'];
+        $properties = $this->entityFieldManager->getFieldDefinitions('user', 'user');
+        $properties_skip = $this->userPropertiesIgnore($context);
+        foreach ($properties as $property_name => $property) {
+            if (isset($properties_skip[$property_name])) {
+                continue;
+            }
+
+            $userinfo_mappings = $this->configFactory->get('cilogon_auth.settings')
+                ->get('userinfo_mappings');
+            if (isset($userinfo_mappings[$property_name])) {
+                $claim = $userinfo_mappings[$property_name];
+
+                if ($claim && isset($userinfo[$claim])) {
+                    $claim_value = $userinfo[$claim];
+                    $property_type = $property->getType();
+
+                    $claim_context = $context + [
+                            'claim' => $claim,
+                            'property_name' => $property_name,
+                            'property_type' => $property_type,
+                            'userinfo_mappings' => $userinfo_mappings,
+                        ];
+                    $this->moduleHandler->alter(
+                        'cilogon_auth_userinfo_claim',
+                        $claim_value,
+                        $claim_context
+                    );
+
+                    // Set the user property, while ignoring exceptions from invalid
+                    // values.
+                    try {
+                        switch ($property_type) {
+                            case 'string':
+                            case 'string_long':
+                            case 'datetime':
+                                $account->set($property_name, $claim_value);
+                                break;
+
+                            case 'image':
+                                // Create file object from remote URL.
+                                $basename = explode('?', $this->fileSystem->basename($claim_value))[0];
+                                $data = file_get_contents($claim_value);
+                                $file = file_save_data(
+                                    $data,
+                                    'public://user-picture-' . $account->id() . '-' . $basename,
+                                    FILE_EXISTS_RENAME
+                                );
+
+                                // Cleanup the old file.
+                                if ($file) {
+                                    $old_file = $account->$property_name->entity;
+                                    if ($old_file) {
+                                        $old_file->delete();
+                                    }
+                                }
+
+                                $account->set(
+                                    $property_name,
+                                    [
+                                        'target_id' => $file->id(),
+                                    ]
+                                );
+                                break;
+
+                            default:
+                                $this->logger->error(
+                                    'Could not save user info, property type not implemented: %property_type',
+                                    [
+                                        '%property_type' => $property_type,
+                                    ]
+                                );
+                                break;
+
+                        }
+                    }
+                        // Catch the error if the field does not exist.
+                    catch (\InvalidArgumentException $e) {
+                        $this->logger->error($e->getMessage());
+                    }
+                }
+            }
+        }
+
+        // Allow other modules to add additional user information.
+        $this->moduleHandler->invokeAll('cilogon_auth_userinfo_save', [
+            $account,
+            $context,
+        ]);
+
+        $account->save();
+    }
+
+    /**
+     * Get the 'sub' property from the user data and/or user claims.
+     *
+     * The 'sub' (Subject Identifier) is a unique ID for the external provider to
+     * identify the user.
+     *
+     * @param array $user_data
+     *   The user data as returned from
+     *   CILogonAuthClientInterface::decodeIdToken().
+     * @param array $userinfo
+     *   The user claims as returned from
+     *   CILogonAuthClientInterface::retrieveUserInfo().
+     *
+     * @return string|false
+     *   The sub, or FALSE if there was an error.
+     */
+    public function extractSub(array $user_data, array $userinfo) {
+        if (!isset($user_data['sub']) && !isset($userinfo['sub'])) {
+            return FALSE;
+        }
+        elseif (!isset($user_data['sub'])) {
+            return $userinfo['sub'];
+        }
+        elseif (isset($userinfo['sub']) && $user_data['sub'] != $userinfo['sub']) {
+            return FALSE;
+        }
+        return $user_data['sub'];
+    }
+
+    /**
+     * Get the 'idp_name' property from the user data and/or user claims.
+     *
+     * The 'idp_name' is the name of the identity provider
+     *
+     * @param array $user_data
+     *   The user data as returned from
+     *   CILogonAuthClientInterface::decodeIdToken().
+     * @param array $userinfo
+     *   The user claims as returned from
+     *   CILogonAuthClientInterface::retrieveUserInfo().
+     *
+     * @return string|false
+     *   The sub, or FALSE if there was an error.
+     */
+    public function extractIdpName(array $user_data, array $userinfo) {
+        if (!isset($user_data['idp_name']) && !isset($userinfo['idp_name'])) {
+            $message = 'IDP Name not found. org.cilogon.userinfo scope may not be requested.';
+            $variables = ['@email' => $userinfo['email']];
+            $this->logger->notice($message, $variables);
+            return FALSE;
+        }
+        elseif (!isset($user_data['idp_name'])) {
+            return $userinfo['idp_name'];
+        }
+        elseif (isset($userinfo['idp_name']) && $user_data['idp_name'] != $userinfo['idp_name']) {
+            return FALSE;
+        }
+        return $user_data['idp_name'];
+    }
+
+    /**
+     * Find whether a user is allowed to change the own password.
+     *
+     * @param \Drupal\Core\Session\AccountInterface $account
+     *   Optional: Account to check the access for.
+     *   Defaults to the currently logged-in user.
+     *
+     * @return bool
+     *   TRUE if access is granted, FALSE otherwise.
+     */
+    public function hasSetPasswordAccess(AccountInterface $account = NULL) {
+        if (empty($account)) {
+            $account = $this->currentUser;
+        }
+
+        if ($account->hasPermission('cilogon auth set own password')) {
+            return TRUE;
+        }
+
+        $connected_accounts = $this->authmap->getConnectedAccounts($account);
+
+        return empty($connected_accounts);
+    }
+
+    /**
+     * Create a user indicating sub-id and login provider.
+     *
+     * @param string $sub
+     *   The subject identifier.
+     * @param array $userinfo
+     *   The user claims, containing at least 'email'.
+     * @param string $client_name
+     *   The machine name of the client.
+     * @param int $status
+     *   The initial user status.
+     *
+     * @return \Drupal\user\UserInterface|false
+     *   The user object or FALSE on failure.
+     */
+    public function createUser($sub, array $userinfo, $client_name, $status = 1) {
+        /** @var \Drupal\user\UserInterface $account */
+        $username = $this->generateUsername($sub, $userinfo, $client_name);
+
+        if (!is_null($this->userRestrictionsManager)) {
+            $enable_user_restrictions = $this->configFactory->get('cilogon_auth.settings')
+                ->get('enable_user_restriction');
+            if ($enable_user_restrictions) {
+                $input = [
+                    'name' => $username
+                ];
+
+                if ($this->userRestrictionsManager->matchesRestrictions($input)) {
+                    $this->messenger->addError(($this->userRestrictionsManager->getErrors())['name']);
+                    return FALSE;
+                }
+            }
+        }
+
+        $account = $this->userStorage->create([
+            'name' => $username,
+            'pass' => user_password(),
+            'mail' => $userinfo['email'],
+            'init' => $userinfo['email'],
+            'status' => $status,
+            'cilogon_auth_client' => $client_name,
+            'cilogon_auth_sub' => $sub,
+        ]);
+        $account->save();
+
+        return $account;
+    }
+
+    /**
+     * Log in a user.
+     *
+     * @param \Drupal\user\UserInterface $account
+     *   The user account to login.
+     */
+    protected function loginUser(UserInterface $account) {
+        user_login_finalize($account);
+    }
+
+    /**
+     * Check if a user name already exists.
+     *
+     * @param string $name
+     *   A name to test.
+     *
+     * @return bool
+     *   TRUE if a user exists with the given name, FALSE otherwise.
+     */
+    public function usernameExists($name) {
+        $users = $this->userStorage->loadByProperties([
+            'name' => $name,
+        ]);
+
+        return (bool) $users;
+    }
+
+}

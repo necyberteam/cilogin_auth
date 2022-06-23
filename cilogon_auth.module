@@ -1,0 +1,592 @@
+<?php
+
+/**
+ * @file
+ * Hook implementations of the CILogon Auth module.
+ */
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function cilogon_auth_help($route_name, RouteMatchInterface $route_match) {
+    switch ($route_name) {
+
+        // Main module help for the block module.
+        case 'help.page.cilogon_auth':
+            //About
+            $output = '<h2>About</h2>';
+            $output .= '<p>CILogon Auth module provides Single SignOn (SSO) capability with following features to Higher Education Drupal sites by integrating with freely available CILogon service.</p>';
+            $output .= '<p>About CILogon: CILogon service provides an integrated open source identity and access management platform for research collaborations. </p>';
+            $output .= '<p>Supported identity providers (You can try logging on with your preferred provider): <a href="https://cilogon.org/testidp/">https://cilogon.org/testidp/</a> </p>';
+            $output .= '<p>More information available at https://www.cilogon.org/home</p>';
+
+            $output .= '<h3>Features</h3>';
+            $output .= '<p>Many existing Oauth2 modules do not include the following capabilities.</p>';
+
+            $output .= '<ul>';
+            $output .= '<li>Override site-wide registration and account activation settings for users logging in via SSO</li>';
+            $output .= '<li>Assign predefined role on first user login via SSO</li>';
+            $output .= '<li>Generate custom usernames on first user login via SSO e.g. based on email prefix</li>';
+            $output .= '<li>Store organization information (IDP) for the SSO user</li>';
+            $output .= '<li>Optional integration with the <a href="https://www.drupal.org/project/user_restrictions">User Restrictions</a> module that further enables the sites to add custom restrictions. (e.g. whitelist certain users or domains to login to the site via SSO and block others).</li>';
+            $output .= '</ul>';
+
+            $output .= '<h3>About CILogon</h3>';
+            $output .= '<p><a href="https://www.cilogon.org/home">CILogon service</a> provides an integrated open source identity and access management platform for research collaborations from a large number of academic institutions and other organizations around the world. See <a href="https://cilogon.org">list</a> of supported identity providers, and test your preferred provider <a href="https://cilogon.org/testidp/">here</a>.</p>';
+
+            //Uses
+            $output .= '<h2>Uses</h2>';
+            $output .= '<p>Allows users to sign-in and register on Drupal site via the CILogon Single Sign-on service. It also allows custom user restriction via integration with the User Restriction module.</p>';
+
+            //Module Requirements
+            $output .= '<h2>Module requirements</h2>';
+            $output .= '<ol>';
+            $output .= '<li>Your site must use HTTPS</li>';
+            $output .= '<li>Register your website to use the CILogon service at <a href="https://cilogon.org/oauth2/register">https://cilogon.org/oauth2/register</a>';
+            $output .= '<ul>';
+            $output .= '<li>Set call back url as: <a href="https://example.com/cilogon-auth/cilogon">https://example.com/cilogon-auth/cilogon</a>  (where example.com is your site\'s base path). Your callback URL must use HTTPS.</li>';
+            $output .= '<li>Required scope: openid and email</li>';
+            $output .= '<li>Recommended scopes to make use of all module features: org.cilogon.userinfo </li>';
+            $output .= '</ul>';
+            $output .= '</li>';
+            $output .= '<li>You may also request CILogon to limit identity provider to one or more organization. See how to customize CILogon at <a href="https://www.cilogon.org/faq#h.p_wZRnibtF7rz7">https://www.cilogon.org/faq#h.p_wZRnibtF7rz7</a></li>';
+            $output .= '</ol>';
+
+            //Optional requirement
+            $output .= '<h2>Optional requirements</h2>';
+            $output .= '<p>This module also integrates the User Restriction module, which allows a high degree of automation and control for user registration and subsequent sign-in.</p>.';
+
+            //Permissions
+            $output .= '<h2>Permissions</h2>';
+            $output .= '<ol>';
+
+            $output .= '<li>Administer CILogon Auth client</li>';
+            $output .= '<ul>';
+            $output .= '<li>Users in roles with this permission allows them to administer module settings.</li>';
+            $output .= '</ul>';
+
+            $output .= '<li>Manage own CILogon auth account</li>';
+            $output .= '<ul>';
+            $output .= '<li>Users in roles with this permission allows them to connect/disconnect their cilogon auth account.</li>';
+            $output .= '</ul>';
+
+            $output .= '<li>Set own password for CILogon Auth account</li>';
+            $output .= '<ul>';
+            $output .= '<li>Users in roles with this permission allows them to set their own password.</li>';
+            $output .= '</ul>';
+
+            $output .= '</ol>';
+
+            //Adminstration
+            $output .= '<h2>Administration</h2>';
+            $output .= '<ol>';
+
+            $output .= '<li>Site configuration (Required)</li>';
+            $output .= '<div>Add the CILogon Auth block to your site\'s login page</div>';
+            $output .= '<ul>';
+            $output .= '<li>Go to structure -> Block Layout</li>';
+            $output .= '<li>Place block in the content section.</li>';
+            $output .= '<li>Restrict the login page to /user/login.</li>';
+            $output .= '</ul>';
+
+            $output .= '<li>CILogon Auth configuration (Required)</li>';
+            $output .= '<ul>';
+            $output .= '<li>Go to Configurations -> Web Services -> CILogon Auth</li>';
+            $output .= '<li>Enable the CILogon checkbox</li>';
+            $output .= '<li>Enter your Client ID and Secret that you got when your registered for cilogon.</li>';
+            $output .= '<li>Press save configuration and your setup is complete. See the settings section for features.</li>';
+            $output .= '</ul>';
+
+            $output .= '<li>CILogon Auth settings (Optional)</li>';
+            $output .= '<ul>';
+            $output .= '<li>Username generation scheme</li>';
+
+            $output .= '<ol>';
+            $output .= '<li>default (e.g. cilogon_hashValue)</li>';
+            $output .= '<li>email (e.g. john@example.com). Only works if you requested email scope during CILogon service registration.</li>';
+            $output .= '<li>email prefix (e.g. john parsed from john@example.com). Only works if you requested email scope during CILogon service registration.</li>';
+            $output .= '<li>custom prefix (e.g. setting prefix as \'user\' will generate usernames as user1, user2 ...)</li>';
+            $output .= '</ol>';
+
+            $output .= '<li>Override registration settings</li>';
+            $output .= '<ul>';
+            $output .= '<li>Allows registration via this module, even when site\'s Account settings restricts registration to "Adminstrators only".</li>';
+            $output .= '</ul>';
+
+            $output .= '<li>Unblock account during registration</li>';
+            $output .= '<ul>';
+            $output .= '<li>Unblocks users registerd by this module, even when site\'s Account settings restricts it to "Visitor, but require admin approval".</li>';
+            $output .= '</ul>';
+
+            $output .= '<li>Show connected IDP of user</li>';
+            $output .= '<ul>';
+            $output .= '<li>If enabled, the users page will show the idp name that user connected with through cilogon. Only works if you requested email scope during CILogon service registration.</li>';
+            $output .= '</ul>';
+
+            $output .= '<li>Enable user restrictions</li>';
+            $output .= '<ul>';
+            $output .= '<li>If enabled, user restriction rules will apply to for user sign-on and registration via this module. Only available, when your site has User Restrictions module installed.</li>';
+            $output .= '</ul>';
+
+            $output .= '<li>Automatically connect existing users</li>';
+            $output .= '<ul>';
+            $output .= '<li>If disabled, authentication will fail for existing email addresses.</li>';
+            $output .= '</ul>';
+
+            $output .= '<li>Logon block description</li>';
+            $output .= '<ul>';
+            $output .= '<li>Will display HTML or regular text under the CILogon Auth block title.</li>';
+            $output .= '</ul>';
+
+            $output .= '</ul>';
+
+            $output .= '<li>Expected Settings Behavior (1 is checked, 0 is unchecked)</li>';
+            $output .= '<p>This module provides a way to override site-wide registration and account blocking after registration if desired. The following table provides mapping between this module\'s settings and site-wide registration settings</p>';
+            $output .= '<p>Site-wide Registration Settings are located at <a href="/admin/config/people/accounts">/admin/config/people/accounts</a>" under "Who can register accounts"</p>';
+            $output .= '<p>(1 is enabled, 0 is disabled)</p>';
+
+            $output .= '</ol>';
+
+            $output .= '<table>';
+            $output .= '<tr>';
+            $output .= '<th colspan="2">CILogon_Auth Settings</th>';
+            $output .= '<th colspan="3">Site-wide Registration Settings</th>';
+            $output .= '<th></th>';
+            $output .= '</tr>';
+            $output .= '<tr>';
+            $output .= '<td>Override registration</td>';
+            $output .= '<td>Unblock account</td>';
+            $output .= '<td>Admin Only</td>';
+            $output .= '<td>Visitors</td>';
+            $output .= '<td>Vistor with Admin approval</td>';
+            $output .= '<td>Result</td>';
+            $output .= '</tr>';
+            $output .= '<tr>';
+            $output .= '<td>1</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>Create &amp; Unblock Account</td>';
+            $output .= '</tr>';
+            $output .= '<tr>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>Create &amp; Block Account</td>';
+            $output .= '</tr>';
+            $output .= '<tr>';
+            $output .= '<td>0</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>Account Creation denied</td>';
+            $output .= '</tr>';
+            $output .= '<tr>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>Account Creation denied</td>';
+            $output .= '</tr>';
+            $output .= '<tr>';
+            $output .= '<td>1</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>Create &amp; Unblock Account</td>';
+            $output .= '</tr>';
+            $output .= '<tr>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>Create &amp; Unblock Account</td>';
+            $output .= '</tr>';
+            $output .= '<tr>';
+            $output .= '<td>0</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>Create &amp; Unblock Account</td>';
+            $output .= '</tr>';
+            $output .= '<tr>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>Create &amp; Unblock Account</td>';
+            $output .= '</tr>';
+            $output .= '<tr>';
+            $output .= '<td>1</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>Create &amp; Unblock Account</td>';
+            $output .= '</tr>';
+            $output .= '<tr>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>Create &amp; Block Account</td>';
+            $output .= '</tr>';
+            $output .= '<tr>';
+            $output .= '<td>0</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>Create &amp; Block Account</td>';
+            $output .= '</tr>';
+            $output .= '<tr>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>0</td>';
+            $output .= '<td>1</td>';
+            $output .= '<td>Create &amp; Block Account</td>';
+            $output .= '</tr>';
+            $output .= '</table>';
+
+            return $output;
+
+            return $output;
+    }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function cilogon_auth_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+    $form['#attached']['library'][] = 'cilogon_auth/cilogon_auth.libraries';
+}
+
+/**
+ * Implements hook_entity_property_info_alter().
+ */
+function cilogon_auth_entity_property_info_alter(&$info) {
+  $properties = &$info['user']['properties'];
+  if (!isset($properties['timezone'])) {
+
+    // Adds the missing timezone property.
+    $properties['timezone'] = [
+      'label' => t('Time zone'),
+      'description' => t("The user's time zone."),
+      'options list' => 'system_time_zones',
+      'getter callback' => 'entity_property_verbatim_get',
+      'setter callback' => 'entity_property_verbatim_set',
+      'schema field' => 'timezone',
+    ];
+
+  }
+}
+
+/**
+ * Implements hook_user_insert().
+ */
+function cilogon_auth_user_insert(EntityInterface $entity) {
+  if (isset($entity->cilogon_auth_client) && isset($entity->cilogon_auth_sub)) {
+    \Drupal::service('cilogon_auth.authmap')->createAssociation($entity, $entity->cilogon_auth_client, $entity->cilogon_auth_sub, $entity->cilogon_auth_idpname);
+  }
+}
+
+/**
+ * Implements hook_user_cancel().
+ */
+function cilogon_auth_user_cancel($edit, $account, $method) {
+  $authmap = \Drupal::service('cilogon_auth.authmap');
+  $authmap->deleteAssociation($account->id());
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_delete() for user.
+ */
+function cilogon_auth_user_delete(EntityInterface $entity) {
+  $authmap = \Drupal::service('cilogon_auth.authmap');
+  $authmap->deleteAssociation($entity->id());
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for form_user_form.
+ */
+function cilogon_auth_form_user_form_alter(&$form, &$form_state) {
+  // Whether the current user is allowed to change its password.
+  if (\Drupal::service('cilogon_auth.cilogon_auth')->hasSetPasswordAccess()) {
+    return;
+  }
+
+  if (isset($form['account'])) {
+    $account_form = &$form['account'];
+  }
+  else {
+    $account_form = &$form;
+  }
+
+  $account_form['current_pass']['#access'] = FALSE;
+  $account_form['current_pass_required_values']['#value'] = [];
+  $account_form['pass']['#access'] = FALSE;
+  $account_form['pass']['#required'] = FALSE;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function cilogon_auth_form_user_profile_form_alter(&$form, &$form_state) {
+  if (isset($form['account'])) {
+    $account_form = &$form['account'];
+  }
+  else {
+    $account_form = &$form;
+  }
+
+  $account = \Drupal::currentUser();
+  if (!empty($account_form['pass']['#access']) && !\Drupal::service('cilogon_auth.cilogon_auth')->hasSetPasswordAccess($account)) {
+    $account_form['current_pass']['#access'] = FALSE;
+    $account_form['current_pass_required_values']['#value'] = [];
+    $account_form['pass']['#access'] = FALSE;
+  }
+}
+
+/**
+ * Saves user profile information into a user account.
+ *
+ * @param \Drupal\user\UserInterface $account
+ *   An user account object.
+ * @param array $userinfo
+ *   An array with information about the user.
+ *
+ */
+function cilogon_auth_save_userinfo(UserInterface $account, array $userinfo) {
+  @trigger_error('cilogon_auth_save_userinfo() is deprecated and will be removed in 8.x-1.x-rc1.', E_USER_DEPRECATED);
+  \Drupal::service('cilogon_auth.cilogon_auth')->saveUserinfo($account, $userinfo);
+}
+
+/**
+ * Logs in a user.
+ *
+ * @param \Drupal\user\UserInterface $account
+ *   The user account.
+ *
+ */
+function cilogon_auth_login_user(UserInterface $account) {
+  @trigger_error('cilogon_auth_login_user() is deprecated and will be removed in 8.x-1.x-rc1.', E_USER_DEPRECATED);
+  user_login_finalize($account);
+}
+
+/**
+ * Save the current path in the session, for redirecting after authorization.
+ *
+ * @deprecated in cilogon_auth 8.x-1.x-beta6, will be removed in 8.x-1.x-rc1.
+ *   Use Drupal\cilogon_auth\CILogonAuthSession::saveDestination() or
+ *   \Drupal::service('cilogon_auth.session')->saveDestination() instead.
+ */
+function cilogon_auth_save_destination() {
+  @trigger_error('cilogon_auth_save_destination() is deprecated and will be removed in 8.x-1.x-rc1.', E_USER_DEPRECATED);
+  \Drupal::service('cilogon_auth.session')->saveDestination();
+}
+
+/**
+ * Creates a user indicating sub-id and login provider.
+ *
+ * @param string $sub
+ *   The subject identifier.
+ * @param array $userinfo
+ *   The user claims, containing at least 'email'.
+ * @param string $client_name
+ *   The machine name of the client.
+ * @param int $status
+ *   The initial user status.
+ *
+ * @return object|false
+ *   The user object or FALSE on failure.
+ *
+ * @deprecated in cilogon_auth 8.x-1.x-beta6, will be removed in 8.x-1.x-rc1.
+ *   Use Drupal\cilogon_auth\CILogonAuth::createUser() or
+ *   \Drupal::service('cilogon_auth.cilogon_auth')->createUser() instead.
+ */
+function cilogon_auth_create_user($sub, array $userinfo, $client_name, $status = 1) {
+  @trigger_error('cilogon_auth_create_user() is deprecated and will be removed in 8.x-1.x-rc1.', E_USER_DEPRECATED);
+  return \Drupal::service('cilogon_auth.cilogon_auth')->createUser($sub, $userinfo, $client_name, $status);
+}
+
+/**
+ * Generate a username for a new account.
+ *
+ * @param string $sub
+ *   The subject identifier.
+ * @param array $userinfo
+ *   The user claims.
+ * @param string $client_name
+ *   The client identifier.
+ *
+ * @return string
+ *   A unique username.
+ *
+ * @deprecated in cilogon_auth 8.x-1.x-beta6, will be removed in 8.x-1.x-rc1.
+ *   No replacement is intended. The new method
+ *   Drupal\cilogon_auth\CILogonAuth::generateUsername() or
+ *   \Drupal::service('cilogon_auth.cilogon_auth')->generateUsername()
+ *   will be set protected for the CILogon Auth service.
+ */
+function cilogon_auth_generate_username($sub, array $userinfo, $client_name) {
+  @trigger_error('cilogon_auth_generate_username() is deprecated and will be removed in 8.x-1.x-rc1.', E_USER_DEPRECATED);
+  return \Drupal::service('cilogon_auth.cilogon_auth')->generateUsername($sub, $userinfo, $client_name);
+}
+
+/**
+ * Check if a user name already exists.
+ *
+ * @param string $name
+ *   A name to test.
+ *
+ * @return bool
+ *   TRUE if a user exists with the given name, FALSE otherwise.
+ *
+ * @deprecated in cilogon_auth 8.x-1.x-beta6, will be removed in 8.x-1.x-rc1.
+ *   No replacement is intended. The new method
+ *   Drupal\cilogon_auth\CILogonAuth::usernameExists() or
+ *   \Drupal::service('cilogon_auth.cilogon_auth')->usernameExists()
+ *   will be set protected for the CILogon Auth service.
+ */
+function cilogon_auth_username_exists($name) {
+  @trigger_error('cilogon_auth_username_exists() is deprecated and will be removed in 8.x-1.x-rc1.', E_USER_DEPRECATED);
+  return \Drupal::service('cilogon_auth.cilogon_auth')->usernameExists($name);
+}
+
+/**
+ * Find whether the user is allowed to change their own password.
+ *
+ * @param object $account
+ *   A user account object.
+ *
+ * @return bool
+ *   TRUE if access is granted, FALSE otherwise.
+ *
+ * @deprecated in cilogon_auth 8.x-1.x-beta6, will be removed in 8.x-1.x-rc1.
+ *   Use Drupal\cilogon_auth\CILogonAuth::hasSetPasswordAccess() or
+ *   \Drupal::service('cilogon_auth.cilogon_auth')->hasSetPasswordAccess()
+ *   instead.
+ */
+function cilogon_auth_set_password_access($account) {
+  @trigger_error('cilogon_auth_set_password_access() is deprecated and will be removed in 8.x-1.x-rc1.', E_USER_DEPRECATED);
+  return \Drupal::service('cilogon_auth.cilogon_auth')->hasSetPasswordAccess($account);
+}
+
+/**
+ * Connect an external CILogon Auth account to a Drupal user account.
+ *
+ * @param object $account
+ *   The Drupal user object.
+ * @param string $client_name
+ *   The client machine name.
+ * @param string $sub
+ *   The 'sub' property identifying the external account.
+ *
+ * @deprecated in cilogon_auth 8.x-1.x-beta6, will be removed in 8.x-1.x-rc1.
+ *   Use Drupal\cilogon_auth\CILogonAuthAuthmap::createAssociation() or
+ *   \Drupal::service('cilogon_auth.authmap')->createAssociation() instead.
+ */
+function cilogon_auth_connect_account($account, $client_name, $sub, $idp_name) {
+  @trigger_error('cilogon_auth_connect_account() is deprecated and will be removed in 8.x-1.x-rc1.', E_USER_DEPRECATED);
+  \Drupal::service('cilogon_auth.authmap')->createAssociation($account, $client_name, $sub, $idp_name);
+}
+
+/**
+ * Disconnect an external CILogon Auth account from a Drupal user account.
+ *
+ * @param object $account
+ *   The Drupal user object.
+ * @param string $client_name
+ *   The client machine name.
+ *
+ * @deprecated in cilogon_auth 8.x-1.x-beta6, will be removed in 8.x-1.x-rc1.
+ *   Use Drupal\cilogon_auth\CILogonAuthAuthmap::deleteAssociation() or
+ *   \Drupal::service('cilogon_auth.authmap')->deleteAssociation() instead.
+ */
+function cilogon_auth_disconnect_account($account, $client_name) {
+  @trigger_error('cilogon_auth_disconnect_account() is deprecated and will be removed in 8.x-1.x-rc1.', E_USER_DEPRECATED);
+  \Drupal::service('cilogon_auth.authmap')->deleteAssociation($account->id(), $client_name);
+}
+
+/**
+ * Get the 'sub' property from the user data and/or user claims.
+ *
+ * The 'sub' (Subject Identifier) is a unique ID for the external provider to
+ * identify the user.
+ *
+ * @param array $user_data
+ *   The user data as returned from
+ *   CILogonAuthClientInterface::decodeIdToken().
+ * @param array $userinfo
+ *   The user claims as returned from
+ *   CILogonAuthClientInterface::retrieveUserInfo().
+ *
+ * @return string|false
+ *   The sub, or FALSE if there was an error.
+ *
+ * @deprecated in cilogon_auth 8.x-1.x-beta6, will be removed in 8.x-1.x-rc1.
+ *   Use Drupal\cilogon_auth\CILogonAuth::extractSub() or
+ *   \Drupal::service('cilogon_auth.cilogon_auth')->extractSub() instead.
+ */
+function cilogon_auth_extract_sub(array $user_data, array $userinfo) {
+  @trigger_error('cilogon_auth_extract_sub() is deprecated and will be removed in 8.x-1.x-rc1.', E_USER_DEPRECATED);
+  return \Drupal::service('cilogon_auth.cilogon_auth')->extractSub($user_data, $userinfo);
+}
+
+/**
+ * Complete the authorization after tokens have been retrieved.
+ *
+ * @param object $client
+ *   The client.
+ * @param array $tokens
+ *   The tokens as returned from CILogonAuthClientInterface::retrieveTokens().
+ * @param string|array &$destination
+ *   The path to redirect to after authorization.
+ *
+ * @return bool
+ *   TRUE on success, FALSE on failure.
+ *
+ * @deprecated in cilogon_auth 8.x-1.x-beta6, will be removed in 8.x-1.x-rc1.
+ *   Use Drupal\cilogon_auth\CILogonAuth::completeAuthorization() or
+ *   \Drupal::service('cilogon_auth.cilogon_auth')->completeAuthorization()
+ *   instead.
+ */
+function cilogon_auth_complete_authorization($client, array $tokens, &$destination) {
+  @trigger_error('cilogon_auth_complete_authorization() is deprecated and will be removed in 8.x-1.x-rc1.', E_USER_DEPRECATED);
+  return \Drupal::service('cilogon_auth.cilogon_auth')->completeAuthorization($client, $tokens, $destination);
+}
+
+/**
+ * Connect the current user's account to an external provider.
+ *
+ * @param object $client
+ *   The client.
+ * @param array $tokens
+ *   The tokens as returned from CILogonAuthClientInterface::retrieveTokens().
+ *
+ * @return bool
+ *   TRUE on success, FALSE on failure.
+ *
+ * @deprecated in cilogon_auth 8.x-1.x-beta6, will be removed in 8.x-1.x-rc1.
+ *   Use Drupal\cilogon_auth\CILogonAuth::connectCurrentUser() or
+ *   \Drupal::service('cilogon_auth.cilogon_auth')->connectCurrentUser()
+ *   instead.
+ */
+function cilogon_auth_connect_current_user($client, array $tokens) {
+  @trigger_error('cilogon_auth_connect_current_user() is deprecated and will be removed in 8.x-1.x-rc1.', E_USER_DEPRECATED);
+  return \Drupal::service('cilogon_auth.cilogon_auth')->connectCurrentUser($client, $tokens);
+}

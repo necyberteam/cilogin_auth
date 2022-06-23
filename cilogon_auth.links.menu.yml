@@ -1,0 +1,5 @@
+cilogon_auth.admin_settings:
+  title: 'CILogon Auth'
+  description: 'Configure CILogon Auth'
+  route_name: cilogon_auth.admin_settings
+  parent: 'system.admin_config_services'

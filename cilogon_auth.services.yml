@@ -1,0 +1,26 @@
+services:
+  plugin.manager.cilogon_auth_client.processor:
+    class: Drupal\cilogon_auth\Plugin\CILogonAuthClientManager
+    parent: default_plugin_manager
+
+  cilogon_auth.authmap:
+    class: Drupal\cilogon_auth\CILogonAuthAuthmap
+    arguments: ['@database', '@entity_type.manager']
+
+  cilogon_auth.claims:
+    class: Drupal\cilogon_auth\CILogonAuthClaims
+    arguments: ['@config.factory', '@module_handler']
+
+  cilogon_auth.state_token:
+    class: Drupal\cilogon_auth\CILogonAuthStateToken
+    arguments: []
+
+  cilogon_auth.session:
+    class: Drupal\cilogon_auth\CILogonAuthSession
+    arguments: ['@path.current', '@request_stack']
+
+  cilogon_auth.cilogon_auth:
+    class: Drupal\cilogon_auth\CILogonAuth
+    arguments: ['@config.factory', '@cilogon_auth.authmap', '@entity_type.manager', '@entity_field.manager', '@current_user', '@user.data', '@email.validator', '@messenger', '@module_handler', '@logger.factory', '@file_system']
+    calls:
+      - [setUserRestrictionsManager, ['@?user_restrictions.manager']]

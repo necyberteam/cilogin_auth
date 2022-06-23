@@ -1,0 +1,23 @@
+cilogon_auth.admin_settings:
+  path: 'admin/config/services/cilogon-auth'
+  defaults:
+    _form: '\Drupal\cilogon_auth\Form\CILogonAuthSettingsForm'
+    _title: 'CILogon Auth'
+  requirements:
+    _permission: 'administer cilogon auth client'
+
+cilogon_auth.redirect_controller_redirect:
+  path: '/cilogon-auth/{client_name}'
+  defaults:
+    _controller: '\Drupal\cilogon_auth\Controller\CILogonAuthRedirectController::authenticate'
+    _title: 'CILogon Auth redirect page'
+  requirements:
+    _custom_access: '\Drupal\cilogon_auth\Controller\CILogonAuthRedirectController::access'
+
+cilogon_auth.accounts_controller_index:
+  path: '/user/{user}/connected-accounts'
+  defaults:
+    _form: 'Drupal\cilogon_auth\Form\CILogonAuthAccountsForm'
+    _title: 'Connected Accounts'
+  requirements:
+    _custom_access: '\Drupal\cilogon_auth\Form\CILogonAuthAccountsForm::access'

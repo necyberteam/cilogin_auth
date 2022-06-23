@@ -1,0 +1,33 @@
+{
+  "name": "drupal/cilogon_auth",
+  "description": "The CILogon Auth module enables Single Sign-on via the CILogon.org service, which supports authorization from a large number of academic institutions and other organizations around the world.",
+  "type": "drupal-module",
+  "homepage": "https://drupal.org/project/cilogon_auth",
+  "license": "GPL-2.0-or-later",
+  "minimum-stability": "dev",
+  "authors": [
+    {
+      "name": "Stephen Cheung",
+      "email": "s2cheung@ucsd.edu",
+      "role": "Maintainer"
+    }
+  ],
+  "keywords": [
+    "Drupal",
+    "CILogon",
+    "SingleSignOn"
+  ],
+  "support": {
+    "issues": "https://drupal.org/project/issues/cilogon_auth",
+    "source": "https://git.drupalcode.org/project/cilogon_auth"
+  },
+  "repositories": [
+    {
+      "type": "composer",
+      "url": "https://packages.drupal.org/8"
+    }
+  ],
+  "require": {
+    "drupal/core": "^9.4"
+  }
+}

@@ -1,0 +1,13 @@
+unblock_account: false
+username_generation_scheme: 'default'
+username_custom_prefix: ''
+show_idp: false
+enable_user_restriction: false
+always_save_userinfo: true
+connect_existing_users: false
+override_registration_settings: false
+logon_block_prefix: '<h3 style="margin-bottom: -5px">Log on via CILogon/InCommon</h3><span style="font-size: 0.8em;">Using your home organization. <a href="http://www.cilogon.org/faq">Learn more</a></span>'
+logon_block_suffix: ''
+logon_button_text: 'Log on via CILogon'
+userinfo_mappings:
+  timezone: zoneinfo

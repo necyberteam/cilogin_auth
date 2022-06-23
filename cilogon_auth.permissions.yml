@@ -1,0 +1,12 @@
+administer cilogon auth client:
+  title: 'Administer CILogon Auth client'
+  restrict access: TRUE
+
+manage own cilogon auth account:
+  title: 'Manage own connected account'
+  restrict access: TRUE
+
+cilogon auth set own password:
+  title: 'Set a password for local authentication'
+  description: 'If the account is connected with cilogon auth, the user needs this permission in order to set their own password.'
+  restrict access: TRUE

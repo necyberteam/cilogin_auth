@@ -1,0 +1,5 @@
+cilogon_auth.libraries:
+  version: VERSION
+  css:
+    theme:
+      css/cilogon_auth.css: { }

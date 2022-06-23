@@ -1,0 +1,4 @@
+entity.user.cilogon_auth_accounts:
+  route_name: cilogon_auth.accounts_controller_index
+  base_route: entity.user.canonical
+  title: Connected Accounts
