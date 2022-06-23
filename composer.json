@@ -1,5 +1,5 @@
 {
-  "name": "drupal/cilogon_auth",
+  "name": "drupal_fork/cilogon_auth",
   "description": "The CILogon Auth module enables Single Sign-on via the CILogon.org service, which supports authorization from a large number of academic institutions and other organizations around the world.",
   "type": "drupal-module",
   "homepage": "https://drupal.org/project/cilogon_auth",
