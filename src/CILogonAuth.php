@@ -2,6 +2,7 @@
 
 namespace Drupal\cilogon_auth;
 
+use Drupal\Core\File\FileSystemInterface;
 use Drupal\Console\Bootstrap\Drupal;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -701,7 +702,7 @@ class CILogonAuth {
                                 $file = file_save_data(
                                     $data,
                                     'public://user-picture-' . $account->id() . '-' . $basename,
-                                    FILE_EXISTS_RENAME
+                                    FileSystemInterface::EXISTS_RENAME
                                 );
 
                                 // Cleanup the old file.

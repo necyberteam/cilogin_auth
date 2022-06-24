@@ -164,7 +164,7 @@ abstract class CILogonAuthClientBase extends PluginBase implements CILogonAuthCl
    * {@inheritdoc}
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
-    $redirect_url = URL::fromRoute(
+    $redirect_url = Url::fromRoute(
       'cilogon_auth.redirect_controller_redirect',
       [
         'client_name' => $this->pluginId,
@@ -327,7 +327,7 @@ abstract class CILogonAuthClientBase extends PluginBase implements CILogonAuthCl
         'access_token' => isset($response_data['access_token']) ? $response_data['access_token'] : NULL,
       ];
       if (array_key_exists('expires_in', $response_data)) {
-        $tokens['expire'] = REQUEST_TIME + $response_data['expires_in'];
+        $tokens['expire'] = \Drupal::time()->getRequestTime() + $response_data['expires_in'];
       }
       if (array_key_exists('refresh_token', $response_data)) {
         $tokens['refresh_token'] = $response_data['refresh_token'];
