@@ -111,7 +111,7 @@ class CILogonAuthClaims implements ContainerInjectionInterface {
       ->getEditable('cilogon_auth.settings')
       ->get('userinfo_mappings');
 
-    $scopes = ['openid', 'email', 'org.cilogon.userinfo'];
+    $scopes = ['openid', 'email', 'profile', 'org.cilogon.userinfo'];
     $claims_info = $this->getClaims();
     foreach ($claims as $claim) {
       if (isset($claims_info[$claim]) &&
