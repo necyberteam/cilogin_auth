@@ -12,6 +12,7 @@ use Drupal\Core\Routing\Access\AccessInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
 use Drupal\Core\Messenger\MessengerInterface;
+use Drupal\user\UserInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -197,13 +198,15 @@ class CILogonAuthRedirectController extends ControllerBase implements AccessInte
                         // Respect possible override from CILogono-Auth settings.
                         $register_override = $this->config('cilogon_auth.settings')
                             ->get('override_registration_settings');
-                        if ($register === USER_REGISTER_ADMINISTRATORS_ONLY && $register_override) {
-                            $register = USER_REGISTER_VISITORS;
+                        if ($register === UserInterface::REGISTER_ADMINISTRATORS_ONLY && $register_override) {
+                            $register = UserInterface::REGISTER_VISITORS;
                         }
 
                         switch ($register) {
-                            case USER_REGISTER_ADMINISTRATORS_ONLY:
-                            case USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL:
+                            case UserInterface::REGISTER_ADMINISTRATORS_ONLY:
+                            case UserInterface::REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL:
+
+                            case UserInterface::REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL:
                                 // Skip creating an error message, as completeAuthorization
                                 // already added according messages.
                                 break;

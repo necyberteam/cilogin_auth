@@ -217,7 +217,7 @@ class CILogonAuth {
         $properties_ignore = array_unique($properties_ignore);
         return array_combine($properties_ignore, $properties_ignore);
     }
-
+  
     /**
      * Complete the authorization after tokens have been retrieved.
      *
@@ -362,25 +362,25 @@ class CILogonAuth {
             $register_override = $this->configFactory->get('cilogon_auth.settings')
                 ->get('override_registration_settings');
 
-            if ($register === USER_REGISTER_ADMINISTRATORS_ONLY && $register_override) {
-                $register = USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL;
+            if ($register === UserInterface::REGISTER_ADMINISTRATORS_ONLY && $register_override) {
+                $register = UserInterface::REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL;
             }
 
             $unblock_account = $this->configFactory->get('cilogon_auth.settings')
                 ->get('unblock_account');
 
-            if ($register === USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL && $register_override && $unblock_account) {
-                $register = USER_REGISTER_VISITORS;
+            if ($register === UserInterface::REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL && $register_override && $unblock_account) {
+                $register = UserInterface::REGISTER_VISITORS;
             }
 
             if (empty($account)) {
                 switch ($register) {
-                    case USER_REGISTER_ADMINISTRATORS_ONLY:
+                    case UserInterface::REGISTER_ADMINISTRATORS_ONLY:
                         // Deny user registration.
                         $this->messenger->addError($this->t('Only administrators can register new accounts.'));
                         return FALSE;
 
-                    case USER_REGISTER_VISITORS:
+                    case UserInterface::REGISTER_VISITORS:
                         // Create a new account if register settings is set to visitors or
                         // override is active.
                         $account = $this->createUser($sub, $userinfo, $client->getPluginId(), 1);
@@ -393,7 +393,7 @@ class CILogonAuth {
                         $this->authmap->createAssociation($account, $client->getPluginId(), $sub, $idp_name);
                         break;
 
-                    case USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL:
+                    case UserInterface::REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL:
                         // Create a new account and inform the user of the pending approval.
                         $account = $this->createUser($sub, $userinfo, $client->getPluginId(), 0);
                         $config = $this->configFactory->get('cilogon_auth.settings');
