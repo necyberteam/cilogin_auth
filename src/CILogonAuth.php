@@ -608,7 +608,7 @@ class CILogonAuth {
      */
     public function generateUsername($sub, array $userinfo, $client_name)
     {
-        #respect username generation scheme
+        // #respect username generation scheme
         // $username_generation_scheme = $this->configFactory->get('cilogon_auth.settings')
         //     ->get('username_generation_scheme');
 
@@ -634,9 +634,7 @@ class CILogonAuth {
         //         break;
         // }
 
-        
-
-        // just hacking this to eppn for now -- perhaps more / better idea coming in future
+        // hacking this to use eppn -- maybe this will be improved in future
         $name = $userinfo['eppn'];
 
         // Ensure there are no duplicates.
