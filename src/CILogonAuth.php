@@ -608,37 +608,44 @@ class CILogonAuth {
      */
     public function generateUsername($sub, array $userinfo, $client_name)
     {
-        #respect username generation scheme
-        $username_generation_scheme = $this->configFactory->get('cilogon_auth.settings')
-            ->get('username_generation_scheme');
+        // #respect username generation scheme
+        // $username_generation_scheme = $this->configFactory->get('cilogon_auth.settings')
+        //     ->get('username_generation_scheme');
 
-        switch ($username_generation_scheme)
-        {
-            case 'email':
-                $name = $userinfo['email'];
-                break;
-            case 'email prefix':
-                #email are in the form aaa@bbb. Split string by @ and get aaa
-                $name = explode("@", $userinfo['email'])[0];
-                break;
-            case 'custom prefix':
-                $name = $this->configFactory->get('cilogon_auth.settings')->get('username_custom_prefix') . "1";
+        // switch ($username_generation_scheme)
+        // {
+        //     case 'email':
+        //         $name = $userinfo['email'];
+        //         break;
+        //     case 'email prefix':
+        //         #email are in the form aaa@bbb. Split string by @ and get aaa
+        //         $name = explode("@", $userinfo['email'])[0];
+        //         break;
+        //     case 'custom prefix':
+        //         $name = $this->configFactory->get('cilogon_auth.settings')->get('username_custom_prefix') . "1";
 
-                for ($original = $name, $i = 2; $this->usernameExists($name); $i++) {
-                    $name = $original . $i;
-                }
+        //         for ($original = $name, $i = 2; $this->usernameExists($name); $i++) {
+        //             $name = $original . $i;
+        //         }
 
-                return $name;
-            default:
-                $name = $client_name . '_' . md5($sub);
-                break;
-        }
+        //         return $name;
+        //     default:
+        //         $name = $client_name . '_' . md5($sub);
+        //         break;
+        // }
+
+        // hacking this to use eppn -- maybe this will be improved in future
+        $name = $userinfo['eppn'];
 
         // Ensure there are no duplicates.
         for ($original = $name, $i = 1; $this->usernameExists($name); $i++) {
             $name = $original . '_' . $i;
         }
 
+
+        $msg = "generateUsername() -- username = $username " ;
+        \Drupal::messenger()->addStatus(basename(__FILE__) . ':' . __LINE__ . ' -- ' . $msg);
+        
         return $name;
     }
 
