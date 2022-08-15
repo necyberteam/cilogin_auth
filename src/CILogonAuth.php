@@ -643,8 +643,9 @@ class CILogonAuth {
         }
 
 
-        $msg = "generateUsername() -- username = $username " ;
-        \Drupal::messenger()->addStatus(basename(__FILE__) . ':' . __LINE__ . ' -- ' . $msg);
+        $msg = basename(__FILE__) . ':' . __LINE__ . ' -- ' . "generateUsername() -- username = $name " ;
+        \Drupal::messenger()->addStatus($msg);
+        error_log($msg);
         
         return $name;
     }
