@@ -24,6 +24,9 @@ use Drupal\Component\Utility\EmailValidatorInterface;
  * Main service of the CILogon Auth module.
  */
 class CILogonAuth {
+    
+    // debugging / logging 
+    protected $debug = FALSE;
 
     use StringTranslationTrait;
 
@@ -240,6 +243,14 @@ class CILogonAuth {
         $user_data = $client->decodeIdToken($tokens['id_token']);
         $userinfo = $client->retrieveUserInfo($tokens['access_token']);
 
+        if ($this->debug) {
+            $msg = basename(__FILE__) . ':' . __LINE__ . ' -- ' 
+            . 'userinfo = ' . print_r($userinfo, true);
+        
+            \Drupal::messenger()->addStatus($msg);
+        }
+
+
         $context = [
             'tokens' => $tokens,
             'plugin_id' => $client->getPluginId(),
@@ -294,6 +305,14 @@ class CILogonAuth {
             $account,
             $context,
         ]);
+
+        if ($this->debug) {
+
+            $msg = basename(__FILE__) . ':' . __LINE__ . ' -- ' 
+            . 'context = ' . print_r($context, true);
+        
+            \Drupal::messenger()->addStatus($msg);
+        }        
 
         // Deny access if any module returns FALSE.
         if (in_array(FALSE, $results, TRUE)) {
@@ -634,17 +653,19 @@ class CILogonAuth {
         //         break;
         // }
 
-        // hacking this to use eppn -- maybe this will be improved in future
-        $name = $userinfo['eppn'];
+        // CILogon returns the ACCESS ID in userinfo['sub'] for the ACCESS IdP
+        // and other linked identities. Set the username to the sub value.
+        $name = $userinfo['sub'];
 
         // Ensure there are no duplicates.
         for ($original = $name, $i = 1; $this->usernameExists($name); $i++) {
             $name = $original . '_' . $i;
         }
 
-
-        $msg = "generateUsername() -- username = $username " ;
-        \Drupal::messenger()->addStatus(basename(__FILE__) . ':' . __LINE__ . ' -- ' . $msg);
+        if ($this->debug) {
+            $msg = "generateUsername() -- username = $name " ;
+            \Drupal::messenger()->addStatus(basename(__FILE__) . ':' . __LINE__ . ' -- ' . $msg);
+        }
         
         return $name;
     }
