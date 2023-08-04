@@ -237,6 +237,6 @@ class CILogonAuthRedirectController extends ControllerBase implements AccessInte
         else {
             $redirect = Url::fromUri('internal:/' . ltrim($destination, '/'))->toString();
         }
-        return new RedirectResponse($redirect);
+        return \Drupal::service('request_stack')->getCurrentRequest()->query->set('destination', $redirect);
     }
 }
