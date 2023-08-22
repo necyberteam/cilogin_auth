@@ -13,6 +13,8 @@ cilogon_auth.redirect_controller_redirect:
     _title: 'CILogon Auth redirect page'
   requirements:
     _custom_access: '\Drupal\cilogon_auth\Controller\CILogonAuthRedirectController::access'
+  options:
+    no_cache: 'TRUE'
 
 cilogon_auth.accounts_controller_index:
   path: '/user/{user}/connected-accounts'
