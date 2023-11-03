@@ -897,7 +897,7 @@ class CILogonAuth {
 
         $account = $this->userStorage->create([
             'name' => $username,
-            'pass' => user_password(),
+            'pass' => \Drupal::service('password_generator')->generate(),
             'mail' => $userinfo['email'],
             'init' => $userinfo['email'],
             'status' => $status,
